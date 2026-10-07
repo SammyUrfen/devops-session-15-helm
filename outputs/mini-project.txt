@@ -1,0 +1,181 @@
+$ helm lint notes-chart
+==> Linting notes-chart
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+
+$ helm template notes-dev notes-chart
+---
+# Source: notes-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notes-dev-config
+data:
+  APP_NAME: "notes-app"
+  ENVIRONMENT: "development"
+
+---
+# Source: notes-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: notes-dev-svc
+spec:
+  type: NodePort
+  selector:
+    app: notes-dev
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30090
+
+---
+# Source: notes-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notes-dev-deploy
+  labels:
+    app: notes-dev
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notes-dev
+  template:
+    metadata:
+      labels:
+        app: notes-dev
+    spec:
+      containers:
+        - name: notes
+          image: "nginx:1.24"
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: notes-dev-config
+
+$ helm install notes-dev notes-chart --wait --timeout 3m
+NAME: notes-dev
+LAST DEPLOYED: Wed Oct  7 21:32:30 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+
+$ kubectl get pods
+NAME                                READY   STATUS    RESTARTS   AGE
+notes-dev-deploy-578b55fc88-9gpfk   1/1     Running   0          2s
+
+$ kubectl get services
+NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+kubernetes      ClusterIP   10.96.0.1       <none>        443/TCP        44m
+notes-dev-svc   NodePort    10.108.41.126   <none>        80:30090/TCP   2s
+
+$ kubectl get configmaps
+NAME               DATA   AGE
+kube-root-ca.crt   1      44m
+notes-dev-config   2      2s
+
+$ kubectl get configmap notes-dev-config -o jsonpath='{.data}'
+{"APP_NAME":"notes-app","ENVIRONMENT":"development"}
+
+$ kubectl exec deploy/notes-dev-deploy -- printenv ENVIRONMENT APP_NAME
+development
+notes-app
+
+$ curl -s http://$(minikube -p s15 ip):30090/ | grep -o '<title>.*</title>'
+<title>Welcome to nginx!</title>
+
+$ helm upgrade notes-dev notes-chart -f notes-chart/values-prod.yaml --wait --timeout 3m
+Release "notes-dev" has been upgraded. Happy Helming!
+NAME: notes-dev
+LAST DEPLOYED: Wed Oct  7 21:32:33 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 2
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+
+$ kubectl get pods -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                                 STATUS    IMAGE
+notes-dev-deploy-57c655ccc5-2hvdh   Running   nginx:1.25
+notes-dev-deploy-57c655ccc5-jjl2l   Running   nginx:1.25
+notes-dev-deploy-57c655ccc5-xqd2g   Running   nginx:1.25
+
+$ kubectl get configmap notes-dev-config -o jsonpath='{.data}'
+{"APP_NAME":"notes-app","ENVIRONMENT":"production"}
+
+$ helm history notes-dev
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 21:32:30 2026	superseded	notes-chart-0.1.0	1.0        	Install complete
+2       	Wed Oct  7 21:32:33 2026	deployed  	notes-chart-0.1.0	1.0        	Upgrade complete
+
+$ helm upgrade notes-dev notes-chart --set image.tag=broken-tag-does-not-exist
+Release "notes-dev" has been upgraded. Happy Helming!
+NAME: notes-dev
+LAST DEPLOYED: Wed Oct  7 21:32:55 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 3
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+
+$ kubectl get pods
+NAME                                READY   STATUS             RESTARTS   AGE
+notes-dev-deploy-57c655ccc5-2hvdh   1/1     Running            0          53s
+notes-dev-deploy-844c88d6df-ws7kb   0/1     ImagePullBackOff   0          31s
+
+$ kubectl describe pod -l app=notes-dev | grep -E 'Image:|Reason:' | sort | uniq -c
+      1     Image:          nginx:1.25
+      1     Image:          nginx:broken-tag-does-not-exist
+      1       Reason:       ImagePullBackOff
+
+$ helm history notes-dev
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 21:32:30 2026	superseded	notes-chart-0.1.0	1.0        	Install complete
+2       	Wed Oct  7 21:32:33 2026	superseded	notes-chart-0.1.0	1.0        	Upgrade complete
+3       	Wed Oct  7 21:32:55 2026	deployed  	notes-chart-0.1.0	1.0        	Upgrade complete
+
+$ helm rollback notes-dev 2 --wait --timeout 3m
+Rollback was a success! Happy Helming!
+
+$ kubectl get pods
+NAME                                READY   STATUS    RESTARTS   AGE
+notes-dev-deploy-57c655ccc5-2hvdh   1/1     Running   0          72s
+notes-dev-deploy-57c655ccc5-8bd8h   1/1     Running   0          17s
+notes-dev-deploy-57c655ccc5-ltdxc   1/1     Running   0          19s
+
+$ kubectl get pods -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                                 STATUS    IMAGE
+notes-dev-deploy-57c655ccc5-2hvdh   Running   nginx:1.25
+notes-dev-deploy-57c655ccc5-8bd8h   Running   nginx:1.25
+notes-dev-deploy-57c655ccc5-ltdxc   Running   nginx:1.25
+
+$ helm history notes-dev
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 21:32:30 2026	superseded	notes-chart-0.1.0	1.0        	Install complete
+2       	Wed Oct  7 21:32:33 2026	superseded	notes-chart-0.1.0	1.0        	Upgrade complete
+3       	Wed Oct  7 21:32:55 2026	superseded	notes-chart-0.1.0	1.0        	Upgrade complete
+4       	Wed Oct  7 21:33:26 2026	deployed  	notes-chart-0.1.0	1.0        	Rollback to 2   
+
+$ kubectl get configmap notes-dev-config -o jsonpath='{.data}'
+{"APP_NAME":"notes-app","ENVIRONMENT":"production"}
+
+$ kubectl exec deploy/notes-dev-deploy -- printenv ENVIRONMENT
+production
+
+$ helm uninstall notes-dev
+release "notes-dev" uninstalled
+
+$ kubectl get pods
+No resources found in default namespace.
+
+$ kubectl get services
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   46m
+

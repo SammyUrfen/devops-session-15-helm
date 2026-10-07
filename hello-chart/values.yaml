@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.27"
+
+# Text served at / . Changing it rolls the pods (see checksum annotation).
+message: "Hello from revision one"
+
+service:
+  port: 80
+
+resources:
+  requests: {cpu: 10m, memory: 32Mi}
+  limits: {cpu: 100m, memory: 64Mi}

@@ -1,0 +1,12 @@
+$ helm uninstall hello --wait
+release "hello" uninstalled
+
+$ helm list
+NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+
+$ kubectl get all -l app=hello
+NAME                         READY   STATUS        RESTARTS   AGE
+pod/hello-69d57bccdc-9cb5s   1/1     Terminating   0          17s
+pod/hello-69d57bccdc-g8lqh   1/1     Terminating   0          14s
+pod/hello-69d57bccdc-vc7fj   1/1     Terminating   0          21s
+

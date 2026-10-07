@@ -1,0 +1,231 @@
+#### STAGE install
+$ helm install hello hello-chart --wait --timeout 3m
+NAME: hello
+LAST DEPLOYED: Wed Oct  7 20:51:03 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+hello is installed: 1 replica(s) of nginx:1.27.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+
+$ helm history hello
+REVISION	UPDATED                 	STATUS  	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 20:51:03 2026	deployed	hello-chart-0.1.0	1.27       	Install complete
+
+$ helm get values hello
+USER-SUPPLIED VALUES:
+null
+
+$ kubectl rollout status deploy/hello --timeout=120s
+deployment "hello" successfully rolled out
+
+$ kubectl get deploy hello -o wide
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+hello   1/1     1            1           3s    web          nginx:1.27   app=hello
+
+$ kubectl get pods -l app=hello -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                      STATUS    IMAGE
+hello-686d4f8874-rbfsk   Running   nginx:1.27
+
+$ kubectl exec pod/hello-686d4f8874-rbfsk -- printenv MESSAGE
+Hello from revision one
+
+$ curl -s http://localhost:41580/
+Hello from revision one (image nginx:1.27, chart 0.1.0)
+
+#### STAGE upgrade1
+$ helm upgrade hello hello-chart --set replicaCount=3 --set image.tag=1.28 --set message='Hello from revision two' --wait --timeout 3m
+Release "hello" has been upgraded. Happy Helming!
+NAME: hello
+LAST DEPLOYED: Wed Oct  7 20:51:10 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 2
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+NOTES:
+hello is installed: 3 replica(s) of nginx:1.28.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+
+$ helm history hello
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 20:51:03 2026	superseded	hello-chart-0.1.0	1.27       	Install complete
+2       	Wed Oct  7 20:51:10 2026	deployed  	hello-chart-0.1.0	1.27       	Upgrade complete
+
+$ helm get values hello
+USER-SUPPLIED VALUES:
+image:
+  tag: "1.28"
+message: Hello from revision two
+replicaCount: 3
+
+$ kubectl rollout status deploy/hello --timeout=120s
+deployment "hello" successfully rolled out
+
+$ kubectl get deploy hello -o wide
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+hello   3/3     3            3           19s   web          nginx:1.28   app=hello
+
+$ kubectl get pods -l app=hello -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                      STATUS    IMAGE
+hello-69d57bccdc-6xwvv   Running   nginx:1.28
+hello-69d57bccdc-lpgdk   Running   nginx:1.28
+hello-69d57bccdc-txl9g   Running   nginx:1.28
+
+$ kubectl exec pod/hello-69d57bccdc-6xwvv -- printenv MESSAGE
+Hello from revision two
+
+$ kubectl exec pod/hello-69d57bccdc-lpgdk -- printenv MESSAGE
+Hello from revision two
+
+$ kubectl exec pod/hello-69d57bccdc-txl9g -- printenv MESSAGE
+Hello from revision two
+
+$ curl -s http://localhost:41580/
+Hello from revision two (image nginx:1.28, chart 0.1.0)
+
+#### STAGE upgrade2
+$ cat task2/values-v3.yaml
+replicaCount: 2
+image:
+  tag: "1.29"
+message: "Hello from revision three (values file)"
+
+$ helm upgrade hello hello-chart -f task2/values-v3.yaml --wait --timeout 3m
+Release "hello" has been upgraded. Happy Helming!
+NAME: hello
+LAST DEPLOYED: Wed Oct  7 20:51:26 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 3
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+NOTES:
+hello is installed: 2 replica(s) of nginx:1.29.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+
+$ helm history hello
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 20:51:03 2026	superseded	hello-chart-0.1.0	1.27       	Install complete
+2       	Wed Oct  7 20:51:10 2026	superseded	hello-chart-0.1.0	1.27       	Upgrade complete
+3       	Wed Oct  7 20:51:26 2026	deployed  	hello-chart-0.1.0	1.27       	Upgrade complete
+
+$ helm get values hello
+USER-SUPPLIED VALUES:
+image:
+  tag: "1.29"
+message: Hello from revision three (values file)
+replicaCount: 2
+
+$ kubectl rollout status deploy/hello --timeout=120s
+deployment "hello" successfully rolled out
+
+$ kubectl get deploy hello -o wide
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+hello   2/2     2            2           32s   web          nginx:1.29   app=hello
+
+$ kubectl get pods -l app=hello -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                      STATUS    IMAGE
+hello-75fc9bbb47-m2hnm   Running   nginx:1.29
+hello-75fc9bbb47-pk2nj   Running   nginx:1.29
+
+$ kubectl exec pod/hello-75fc9bbb47-m2hnm -- printenv MESSAGE
+Hello from revision three (values file)
+
+$ kubectl exec pod/hello-75fc9bbb47-pk2nj -- printenv MESSAGE
+Hello from revision three (values file)
+
+$ curl -s http://localhost:41580/
+Hello from revision three (values file) (image nginx:1.29, chart 0.1.0)
+
+#### STAGE rollback
+$ helm rollback hello --wait --timeout 3m
+Rollback was a success! Happy Helming!
+
+$ helm history hello
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 20:51:03 2026	superseded	hello-chart-0.1.0	1.27       	Install complete
+2       	Wed Oct  7 20:51:10 2026	superseded	hello-chart-0.1.0	1.27       	Upgrade complete
+3       	Wed Oct  7 20:51:26 2026	superseded	hello-chart-0.1.0	1.27       	Upgrade complete
+4       	Wed Oct  7 20:51:39 2026	deployed  	hello-chart-0.1.0	1.27       	Rollback to 2   
+
+$ helm get values hello
+USER-SUPPLIED VALUES:
+image:
+  tag: "1.28"
+message: Hello from revision two
+replicaCount: 3
+
+$ kubectl rollout status deploy/hello --timeout=120s
+deployment "hello" successfully rolled out
+
+$ kubectl get deploy hello -o wide
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+hello   3/3     3            3           50s   web          nginx:1.28   app=hello
+
+$ kubectl get pods -l app=hello -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                      STATUS    IMAGE
+hello-69d57bccdc-7kt22   Running   nginx:1.28
+hello-69d57bccdc-lnqkz   Running   nginx:1.28
+hello-69d57bccdc-snz9c   Running   nginx:1.28
+
+$ kubectl exec pod/hello-69d57bccdc-7kt22 -- printenv MESSAGE
+Hello from revision two
+
+$ kubectl exec pod/hello-69d57bccdc-lnqkz -- printenv MESSAGE
+Hello from revision two
+
+$ kubectl exec pod/hello-69d57bccdc-snz9c -- printenv MESSAGE
+Hello from revision two
+
+$ curl -s http://localhost:41580/
+Hello from revision two (image nginx:1.28, chart 0.1.0)
+
+$ kubectl get rs -l app=hello
+NAME               DESIRED   CURRENT   READY   AGE
+hello-686d4f8874   0         0         0       54s
+hello-69d57bccdc   3         3         3       47s
+hello-75fc9bbb47   0         0         0       31s
+
+#### STAGE rollback-to-1
+$ helm rollback hello 1 --wait --timeout 3m
+Rollback was a success! Happy Helming!
+
+$ helm history hello
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION     
+1       	Wed Oct  7 20:51:03 2026	superseded	hello-chart-0.1.0	1.27       	Install complete
+2       	Wed Oct  7 20:51:10 2026	superseded	hello-chart-0.1.0	1.27       	Upgrade complete
+3       	Wed Oct  7 20:51:26 2026	superseded	hello-chart-0.1.0	1.27       	Upgrade complete
+4       	Wed Oct  7 20:51:39 2026	superseded	hello-chart-0.1.0	1.27       	Rollback to 2   
+5       	Wed Oct  7 20:51:57 2026	deployed  	hello-chart-0.1.0	1.27       	Rollback to 1   
+
+$ helm get values hello
+USER-SUPPLIED VALUES:
+null
+
+$ kubectl rollout status deploy/hello --timeout=120s
+deployment "hello" successfully rolled out
+
+$ kubectl get deploy hello -o wide
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES       SELECTOR
+hello   1/1     1            1           61s   web          nginx:1.27   app=hello
+
+$ kubectl get pods -l app=hello -o 'custom-columns=POD:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image'
+POD                      STATUS    IMAGE
+hello-686d4f8874-5mjvj   Running   nginx:1.27
+
+$ kubectl exec pod/hello-686d4f8874-5mjvj -- printenv MESSAGE
+Hello from revision one
+
+$ curl -s http://localhost:41580/
+Hello from revision one (image nginx:1.27, chart 0.1.0)
+

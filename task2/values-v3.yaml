@@ -1,0 +1,4 @@
+replicaCount: 2
+image:
+  tag: "1.29"
+message: "Hello from revision three (values file)"

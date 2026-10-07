@@ -1,0 +1,48 @@
+$ helm repo list
+no repositories to show
+
+$ helm repo add bitnami https://charts.bitnami.com/bitnami
+"bitnami" has been added to your repositories
+
+$ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+"prometheus-community" has been added to your repositories
+
+$ helm repo list
+NAME                	URL                                               
+bitnami             	https://charts.bitnami.com/bitnami                
+prometheus-community	https://prometheus-community.github.io/helm-charts
+
+$ helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "prometheus-community" chart repository
+...Successfully got an update from the "bitnami" chart repository
+Update Complete. ⎈Happy Helming!⎈
+
+$ helm search repo bitnami/nginx
+NAME                            	CHART VERSION	APP VERSION	DESCRIPTION                                       
+bitnami/nginx                   	25.2.1       	1.31.6     	NGINX Open Source is a web server that can be a...
+bitnami/nginx-ingress-controller	12.0.7       	1.13.1     	NGINX Ingress Controller is an Ingress controll...
+bitnami/nginx-intel             	2.1.15       	0.4.9      	DEPRECATED NGINX Open Source for Intel is a lig...
+
+$ helm search repo nginx --versions | head -5
+NAME                                          	CHART VERSION	APP VERSION	DESCRIPTION                                       
+bitnami/nginx                                 	25.2.1       	1.31.6     	NGINX Open Source is a web server that can be a...
+bitnami/nginx                                 	25.2.0       	1.31.6     	NGINX Open Source is a web server that can be a...
+bitnami/nginx                                 	25.1.15      	1.31.6     	NGINX Open Source is a web server that can be a...
+bitnami/nginx                                 	25.1.14      	1.31.6     	NGINX Open Source is a web server that can be a...
+
+$ helm search hub nginx --max-col-width 50 | head -6
+URL                                               	CHART VERSION  	APP VERSION                                     	DESCRIPTION                                       
+https://artifacthub.io/packages/helm/cloudpirat...	0.16.12        	1.31.6                                          	Nginx is a high-performance HTTP server and rev...
+https://artifacthub.io/packages/helm/quench-ngi...	0.0.15         	1.30.5                                          	High-performance web server, reverse proxy, and...
+https://artifacthub.io/packages/helm/krakazyabr...	1.0.0          	1.19.0                                          	Nginx Helm chart for Kubernetes                   
+https://artifacthub.io/packages/helm/dhinesh/nginx	25.2.1         	1.31.6                                          	NGINX Open Source is a web server that can be a...
+https://artifacthub.io/packages/helm/bitnami/nginx	25.2.1         	1.31.6                                          	NGINX Open Source is a web server that can be a...
+
+$ helm repo remove prometheus-community
+"prometheus-community" has been removed from your repositories
+
+$ helm repo list
+NAME   	URL                               
+bitnami	https://charts.bitnami.com/bitnami
+

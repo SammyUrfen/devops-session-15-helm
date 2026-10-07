@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-html
+  labels:
+    app: {{ .Release.Name }}
+data:
+  index.html: |
+    {{ .Values.message }} (image {{ .Values.image.repository }}:{{ .Values.image.tag }}, chart {{ .Chart.Version }})

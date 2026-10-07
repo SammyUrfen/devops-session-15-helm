@@ -1,0 +1,4 @@
+{{ .Release.Name }} is installed: {{ .Values.replicaCount }} replica(s) of {{ .Values.image.repository }}:{{ .Values.image.tag }}.
+Test it:
+  kubectl port-forward svc/{{ .Release.Name }} 41580:{{ .Values.service.port }}
+  curl http://localhost:41580/

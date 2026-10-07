@@ -1,0 +1,377 @@
+$ helm version
+version.BuildInfo{Version:"v4.2.2", GitCommit:"b05881cf967a5a09e19866799d0edfd40675803a", GitTreeState:"clean", GoVersion:"go1.26.4-X:nodwarf5", KubeClientVersion:"v1.36"}
+
+$ helm create demo-chart
+Creating demo-chart
+
+$ ls demo-chart demo-chart/templates
+demo-chart:
+charts
+Chart.yaml
+templates
+values.yaml
+
+demo-chart/templates:
+deployment.yaml
+_helpers.tpl
+hpa.yaml
+httproute.yaml
+ingress.yaml
+NOTES.txt
+serviceaccount.yaml
+service.yaml
+tests
+
+$ helm lint hello-chart
+==> Linting hello-chart
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+
+$ helm template hello hello-chart
+---
+# Source: hello-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-html
+  labels:
+    app: hello
+data:
+  index.html: |
+    Hello from revision one (image nginx:1.27, chart 0.1.0)
+
+---
+# Source: hello-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  labels:
+    app: hello
+spec:
+  type: ClusterIP
+  selector:
+    app: hello
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# Source: hello-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  labels:
+    app: hello
+    chart: hello-chart-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+      annotations:
+        # A ConfigMap change alone does not restart pods; this hash makes it do so.
+        checksum/html: fc4dd4a1c526b056aacee686fa1cfb8b0849388ed8d59519cbdd83f059df651a
+    spec:
+      containers:
+        - name: web
+          image: "nginx:1.27"
+          ports:
+            - containerPort: 80
+          env:
+            - name: MESSAGE
+              value: "Hello from revision one"
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: hello-html
+
+$ helm install hello hello-chart --wait --timeout 3m
+NAME: hello
+LAST DEPLOYED: Wed Oct  7 20:48:28 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+hello is installed: 1 replica(s) of nginx:1.27.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+
+$ helm list
+NAME 	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART            	APP VERSION
+hello	default  	1       	2026-10-07 20:48:28.748231605 +0530 IST	deployed	hello-chart-0.1.0	1.27       
+
+$ helm status hello
+NAME: hello
+LAST DEPLOYED: Wed Oct  7 20:48:28 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+RESOURCES:
+==> v1/ConfigMap
+NAME         DATA   AGE
+hello-html   1      22s
+
+==> v1/Service
+NAME    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+hello   ClusterIP   10.104.174.247   <none>        80/TCP    22s
+
+==> v1/Deployment
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE
+hello   1/1     1            1           21s
+
+==> v1/Pod(related)
+NAME                     READY   STATUS    RESTARTS   AGE
+hello-686d4f8874-j9lbk   1/1     Running   0          21s
+
+
+TEST SUITE: None
+NOTES:
+hello is installed: 1 replica(s) of nginx:1.27.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+
+$ helm get values hello
+USER-SUPPLIED VALUES:
+null
+
+$ helm get values hello --all
+COMPUTED VALUES:
+image:
+  repository: nginx
+  tag: "1.27"
+message: Hello from revision one
+replicaCount: 1
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 10m
+    memory: 32Mi
+service:
+  port: 80
+
+$ helm get manifest hello
+---
+# Source: hello-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-html
+  labels:
+    app: hello
+data:
+  index.html: |
+    Hello from revision one (image nginx:1.27, chart 0.1.0)
+
+---
+# Source: hello-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  labels:
+    app: hello
+spec:
+  type: ClusterIP
+  selector:
+    app: hello
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# Source: hello-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  labels:
+    app: hello
+    chart: hello-chart-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+      annotations:
+        # A ConfigMap change alone does not restart pods; this hash makes it do so.
+        checksum/html: fc4dd4a1c526b056aacee686fa1cfb8b0849388ed8d59519cbdd83f059df651a
+    spec:
+      containers:
+        - name: web
+          image: "nginx:1.27"
+          ports:
+            - containerPort: 80
+          env:
+            - name: MESSAGE
+              value: "Hello from revision one"
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: hello-html
+
+
+
+$ helm get notes hello
+NOTES:
+hello is installed: 1 replica(s) of nginx:1.27.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+
+
+$ helm get all hello
+NAME: hello
+LAST DEPLOYED: Wed Oct  7 20:48:28 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+CHART: hello-chart
+VERSION: 0.1.0
+APP_VERSION: 1.27
+DESCRIPTION: Install complete
+TEST SUITE: None
+USER-SUPPLIED VALUES:
+null
+
+COMPUTED VALUES:
+image:
+  repository: nginx
+  tag: "1.27"
+message: Hello from revision one
+replicaCount: 1
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 10m
+    memory: 32Mi
+service:
+  port: 80
+
+HOOKS:
+MANIFEST:
+---
+# Source: hello-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-html
+  labels:
+    app: hello
+data:
+  index.html: |
+    Hello from revision one (image nginx:1.27, chart 0.1.0)
+
+---
+# Source: hello-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+  labels:
+    app: hello
+spec:
+  type: ClusterIP
+  selector:
+    app: hello
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# Source: hello-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  labels:
+    app: hello
+    chart: hello-chart-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+      annotations:
+        # A ConfigMap change alone does not restart pods; this hash makes it do so.
+        checksum/html: fc4dd4a1c526b056aacee686fa1cfb8b0849388ed8d59519cbdd83f059df651a
+    spec:
+      containers:
+        - name: web
+          image: "nginx:1.27"
+          ports:
+            - containerPort: 80
+          env:
+            - name: MESSAGE
+              value: "Hello from revision one"
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: hello-html
+
+
+NOTES:
+hello is installed: 1 replica(s) of nginx:1.27.
+Test it:
+  kubectl port-forward svc/hello 41580:80
+  curl http://localhost:41580/
+

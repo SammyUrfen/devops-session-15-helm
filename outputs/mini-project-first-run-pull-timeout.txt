@@ -1,0 +1,9 @@
+
+$ helm install notes-dev notes-chart --wait --timeout 3m
+Error: INSTALLATION FAILED: resource Deployment/default/notes-dev-deploy not ready. status: InProgress, message: Available: 0/1
+context deadline exceeded
+
+$ kubectl get pods
+NAME                                READY   STATUS             RESTARTS   AGE
+notes-dev-deploy-578b55fc88-sd7br   0/1     ImagePullBackOff   0          3m
+
